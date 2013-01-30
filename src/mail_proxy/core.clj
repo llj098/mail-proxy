@@ -1,10 +1,14 @@
 (ns mail-proxy.core
   (:import
+   [java.io
+    BufferedReader
+    InputStreamReader]
    [java.util.concurrent
     Executors]
    [org.jboss.netty.channel
     ChannelPipeline
     ChannelUpstreamHandler
+    SimpleChannelUpstreamHandler
     ChannelEvent]
    [javax.net.ssl
     X509TrustManager
@@ -17,6 +21,10 @@
     ClientBootstrap]
    [org.jboss.netty.handler.ssl
     SslHandler]
+   [org.jboss.netty.handler.codec.frame
+    DelimiterBasedFrameDecoder Delimiters]
+   [org.jboss.netty.handler.codec.string
+    StringEncoder StringDecoder]
    [java.net
     InetSocketAddress]))
 
@@ -27,7 +35,11 @@
     (getAcceptedIssuers [_])))
 
 (def message-handler
-  (reify 
+  (proxy [SimpleChannelUpstreamHandler] []
+    (handleUpstream [ctx e] (proxy-super handleUpstream ctx e))
+    (channelConnected [ctx e] )
+    (messageReceived [ctx e] (println (.getMessage e)))
+    (exceptionCaught [ctx e] (do (println (.getCause e)) (-> e .getChannel .close)))))
 
 (defn create-ssl-handler
   [{:keys [server-name server-port ignore-ssl-certs?]}]
@@ -44,31 +56,23 @@
     (.setCloseOnSSLException true)))
 
 
-(def client (ClientBootstrap.))
-(def pipe (.getPipeline client))
+(defn -main[]
+  (let [client (ClientBootstrap. (NioClientSocketChannelFactory.
+                                  (Executors/newCachedThreadPool)
+                                  (Executors/newCachedThreadPool)))
+        pipe (.getPipeline client)]
+    (do
+      (doto pipe
+        (.addLast "ssl", (create-ssl-handler {:server-name "pop3.feinno.com" :server-port 995}))
+        (.addLast "framer" (DelimiterBasedFrameDecoder. 8192 (Delimiters/lineDelimiter)))
+        (.addLast "decoder" (StringDecoder.))
+        (.addLast "encoder" (StringEncoder.))
+        (.addLast "handler" message-handler))
+      (let [fu (-> client (.connect (InetSocketAddress. "pop3.feinno.com" 995)))
+            ch (-> fu .awaitUninterruptibly .getChannel)
+            in (BufferedReader. (InputStreamReader. System/in))]
+            (while true
+              (.write ch (str (.readLine in) "\r\n")))))))
 
-
-(doto pipe
-  (.addLast "ssl", 
-            (create-ssl-handler {:server-name "pop3.feinno.com" :server-port 995}))
-  (.addLast "framer" (DelimiterBasedFrameDecoder. 8192 (Delimiters/lineDelimiter)))
-  (.addLast "decoder" (StringDecoder.))
-  (.addLast "encoder" (StringEncoder.)))
-
-
-
-
-
-(defn foo
-  "I don't do a whole lot."
-  [x]
-  (println x "Hello, World!"))
-
-
-(def mm [1 2 3])
-
-
-
-(foo #{1})
 
 
