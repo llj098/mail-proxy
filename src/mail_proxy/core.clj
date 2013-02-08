@@ -33,6 +33,8 @@
    [java.net
     InetSocketAddress]))
 
+(def options  {:sport 110 :cport 995 :address "pop3.feinno.com" :ssl? true})
+                    
 (def naive-trust-manager
   (reify X509TrustManager
     (checkClientTrusted [_ _ _])
@@ -82,13 +84,11 @@
         pipe (.getPipeline client)]
     (do
       (.setOption client "connectTimeoutMillis" 10000)
-      (doto pipe
-        (.addLast "ssl", (create-ssl-handler {:server-name "pop3.feinno.com" :server-port 995}))
-;        (.addLast "framer" (DelimiterBasedFrameDecoder. 8192 (Delimiters/lineDelimiter)))
-;        (.addLast "decoder" (StringDecoder.))
-;        (.addLast "encoder" (StringEncoder.))
-        (.addLast "handler" client-handler))
-      client)))
+      (when (:ssl? options)
+          (.addLast pipe "ssl", (create-ssl-handler {:server-name (:address options)
+                                                :server-port (:cport options)})))
+      (.addLast pipe "handler" client-handler))
+      client))
 
 (def message-handler
   (proxy [SimpleChannelUpstreamHandler] []
@@ -109,7 +109,7 @@
           (.close sch))))
     (channelConnected [ctx e]
       (let [client (create-client)
-            fu (.connect client (InetSocketAddress. "pop3.feinno.com" 995))
+            fu (.connect client (InetSocketAddress. (:address options) (:cport options)))
             cch (-> fu .awaitUninterruptibly .getChannel)]
         (do 
           (.setAttachment ctx cch)
@@ -123,7 +123,7 @@
             (.close cch)
             (.close sch)))))))
 
-(defn start-server [port]
+(defn start-server []
   (let [svr (ServerBootstrap. (NioServerSocketChannelFactory.
                                (Executors/newCachedThreadPool)
                                (Executors/newCachedThreadPool)))
@@ -131,7 +131,11 @@
     (do
       (DefaultChannelFuture/setUseDeadLockChecker false)
       (.addLast pipe "handler" server-handler)
-      (.bind svr (InetSocketAddress. port)))))
+      (.bind svr (InetSocketAddress. (:sport options))))))
 
-(defn -main[]
-  (start-server 9999))
+
+(defn -main[p1 p2 cd ssl?]
+  (do
+    (def options {:sport (read-string p1) :cport (read-string p2)
+                  :address cd :ssl? (read-string ssl?)})
+    (start-server)))
