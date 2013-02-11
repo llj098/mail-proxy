@@ -43,24 +43,29 @@
 
 (def client-handler
   (proxy [SimpleChannelUpstreamHandler] []
-    (handleUpstream [ctx e] (proxy-super handleUpstream ctx e))
     (channelDisconnected [ctx e]
-      (let [cch (.getChannel e)
-            sch (.getAttachment cch)]
-        (do
-          (.close cch)
-          (.close sch))))
-    (messageReceived [ctx e]
-      (let [sch (-> ctx .getChannel .getAttachment)]
-        (.write sch (.getMessage e))))
-    (exceptionCaught [ctx e]
-      (do
-        (println (.getCause e))
+      (try 
         (let [cch (.getChannel e)
               sch (.getAttachment cch)]
           (do
-            (.close sch)
-            (.close cch)))))))
+            (.close cch)
+            (.close sch)))
+        (catch Exception e (println e))))
+    (messageReceived [ctx e]
+      (try 
+        (let [sch (-> ctx .getChannel .getAttachment)]
+          (.write sch (.getMessage e)))
+        (catch Exception e (println e))))
+    (exceptionCaught [ctx e]
+      (try 
+        (do
+          (println (.getCause e))
+          (let [cch (.getChannel e)
+                sch (.getAttachment cch)]
+            (do
+              (.close sch)
+              (.close cch))))
+        (catch Exception e (println e))))))
 
 (defn create-ssl-handler
   [{:keys [server-name server-port ignore-ssl-certs?]}]
@@ -90,38 +95,42 @@
       (.addLast pipe "handler" client-handler))
       client))
 
-(def message-handler
-  (proxy [SimpleChannelUpstreamHandler] []
-    (handleUpstream [ctx e] (proxy-super handleUpstream ctx e))
-    (channelConnected [ctx e] )
-    (messageReceived [ctx e] (println (.getMessage e)))
-    (exceptionCaught [ctx e] (do (println (.getCause e)) (-> e .getChannel .close)))))
-
 (def server-handler
   (proxy [SimpleChannelUpstreamHandler] []
     (messageReceived [ctx e]
-      (.write (.getAttachment ctx) (.getMessage e)))
+      (try
+        (.write (.getAttachment ctx) (.getMessage e))
+        (catch Exception e (println e))))
     (channelDisconnected [ctx e]
-      (let [cch (.getAttachment ctx)
-            sch (.getChannel e)]
-        (do
-          (.close cch)
-          (.close sch))))
-    (channelConnected [ctx e]
-      (let [client (create-client)
-            fu (.connect client (InetSocketAddress. (:address options) (:cport options)))
-            cch (-> fu .awaitUninterruptibly .getChannel)]
-        (do 
-          (.setAttachment ctx cch)
-          (.setAttachment cch (.getChannel e)))))
-    (exceptionCaught [ctx e]
-      (do
-        (println (.getCause e))
-        (let [sch (.getChannel e)
-              cch (.getAttachment ctx)]
+      (try 
+        (let [cch (.getAttachment ctx)
+              sch (.getChannel e)]
           (do
             (.close cch)
-            (.close sch)))))))
+            (.close sch)))
+        (catch Exception e (println e))))
+    (channelConnected [ctx e]
+      (try
+        (let [client (create-client)
+              fu (.connect client (InetSocketAddress. (:address options) (:cport options)))
+              cch (-> fu .awaitUninterruptibly .getChannel)]
+          (do 
+            (.setAttachment ctx cch)
+            (.setAttachment cch (.getChannel e))))
+        (catch Exception e 
+          (do 
+            (println e)
+            (.close (.getChannel e))))))
+    (exceptionCaught [ctx e]
+      (try      
+        (do
+          (println (.getCause e))
+          (let [sch (.getChannel e)
+                cch (.getAttachment ctx)]
+            (do
+              (.close cch)
+              (.close sch))))
+        (catch Exception e (println e))))))
 
 (defn start-server []
   (let [svr (ServerBootstrap. (NioServerSocketChannelFactory.
