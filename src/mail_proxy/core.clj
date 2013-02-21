@@ -95,8 +95,6 @@
       (.addLast pipe "handler" client-handler))
       client))
 
-(def global-client (create-client))
-
 (def server-handler
   (proxy [SimpleChannelUpstreamHandler] []
     (messageReceived [ctx e]
@@ -113,7 +111,7 @@
         (catch Exception e (println e))))
     (channelConnected [ctx e]
       (try
-        (let [client global-client
+        (let [client (create-client)
               fu (.connect client (InetSocketAddress. (:address options) (:cport options)))
               cch (-> fu .awaitUninterruptibly .getChannel)]
           (do 
