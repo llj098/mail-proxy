@@ -26,5 +26,16 @@ if [ "$port" = "" ]; then
 fi
 
 sleep 5;
+
+
+for i in `pgrep java`;
+do 
+n=`ls -l /proc/$i/task | wc -l`
+if [ $n -gt 500 ]; then
+	echo 'too many threads, kill....'
+	pkill java
+fi
+done;
+
 done
 
