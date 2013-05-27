@@ -1,4 +1,5 @@
 (ns mail-proxy.core
+  (:gen-class :main true)
   (:import
    [java.io
     BufferedReader

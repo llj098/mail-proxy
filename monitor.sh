@@ -1,11 +1,12 @@
 #!/bin/bash
 
 function start_pop3 {
-	nohup lein run -m mail-proxy.core 110 995 pop3.feinno.com true &
+	
+	nohup java -jar target/mail-proxy-0.1.0-SNAPSHOT-standalone.jar 110 995 pop3.feinno.com true &
 }
 
 function start_smtp {
-	nohup lein run -m mail-proxy.core 25 587 smtp.feinno.com false &
+	nohup java -jar target/mail-proxy-0.1.0-SNAPSHOT-standalone.jar 25 587 smtp.feinno.com false &
 }
 
 while true;
@@ -31,9 +32,9 @@ sleep 5;
 for i in `pgrep java`;
 do 
 n=`ls -l /proc/$i/task | wc -l`
-if [ $n -gt 500 ]; then
+if [ $n -gt 250 ]; then
 	echo 'too many threads, kill....'
-	pkill java
+	kill $i
 fi
 done;
 
