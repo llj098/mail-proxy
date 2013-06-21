@@ -1,3 +1,3 @@
-# Introduction to mail-proxy
+# Introduction to mail-proxy-new
 
 TODO: write [great documentation](http://jacobian.org/writing/great-documentation/what-to-write/)
