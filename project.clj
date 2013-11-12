@@ -1,4 +1,4 @@
-(defproject mail-proxy-new "0.1.0-SNAPSHOT"
+(defproject mail-proxy "0.1.0-SNAPSHOT"
   :description "FIXME: write description"
   :url "http://example.com/FIXME"
   :main mail-proxy.core

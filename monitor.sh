@@ -1,12 +1,11 @@
 #!/bin/bash
 
 function start_pop3 {
-	
-	nohup java -jar target/mail-proxy-0.1.0-SNAPSHOT-standalone.jar 110 995 pop3.feinno.com true &
+	nohup java -jar target/mail-proxy-0.1.0-SNAPSHOT-standalone.jar 110 pop3.feinno.com 995 true true &
 }
 
 function start_smtp {
-	nohup java -jar target/mail-proxy-0.1.0-SNAPSHOT-standalone.jar 25 587 smtp.feinno.com false &
+	nohup java -jar target/mail-proxy-0.1.0-SNAPSHOT-standalone.jar 25 smtp.feinno.com 587 false false &
 }
 
 while true;
